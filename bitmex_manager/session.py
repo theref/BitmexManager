@@ -1,4 +1,7 @@
 import sys
+import requests
+from bitmex_manager.websocket_utils import get_ws_url
+
 
 this = sys.modules[__name__]
 
@@ -6,6 +9,8 @@ this.base_url = None
 this.api_key = None
 this.api_secret = None
 this.order_id_prefix = None
+
+this.session = None
 
 
 def initialise(base_url=None, api_key=None, api_secret=None, order_id_prefix=None):
@@ -21,8 +26,12 @@ def initialise(base_url=None, api_key=None, api_secret=None, order_id_prefix=Non
 
 
 def build_https_session():
-    pass
+    this.session = requests.Session()
+    # These headers are always sent
+    this.session.headers.update({'user-agent': 'jamescampbell.org.uk'})
+    this.session.headers.update({'content-type': 'application/json'})
+    this.session.headers.update({'accept': 'application/json'})
 
 
-def build_websocket():
-    pass
+def build_websocket(symbol):
+    ws_url = get_ws_url(endpoint=this.base_url, symbol=symbol)
