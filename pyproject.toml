@@ -1,0 +1,10 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "bitmex_manager"
+author = "James Campbell"
+author-email = "james.campbell@tanti.org.uk"
+home-page = "james.campbell@tanti.org.uk"
+
