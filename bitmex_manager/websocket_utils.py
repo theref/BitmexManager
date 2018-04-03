@@ -19,17 +19,17 @@ this.keys = {}
 MAX_TABLE_LEN = 200
 
 
-def get_ws_url(endpoint=None, symbol=None):
+def get_ws_url(endpoint=None, symbol='XBTUSD'):
     """Connect to the websocket and initialize data stores."""
 
-    subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
-    subscriptions += ["instrument"]
-    subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
-    subscriptions += ["margin", "position"]
+    subscriptions = [sub + ':' + symbol for sub in ['quote', 'trade']]
+    subscriptions += ['instrument']
+    subscriptions += [sub + ':' + symbol for sub in ['order', 'execution']]
+    subscriptions += ['margin', 'position']
 
     url_parts = list(urlparse(endpoint))
     url_parts[0] = url_parts[0].replace('http', 'ws')
-    url_parts[2] = "/realtime?subscribe=" + ",".join(subscriptions)
+    url_parts[2] = '/realtime?subscribe=' + ','.join(subscriptions)
     ws_url = urlunparse(url_parts)
 
     return ws_url
@@ -51,7 +51,7 @@ def ws_connect(ws_url, api_key, api_secret):
     wst = threading.Thread(target=lambda: this.ws.run_forever(sslopt=ssl_opt_ca_certs))
     wst.daemon = True
 
-    this.logger.info("Connecting to %s" % ws_url)
+    this.logger.info(f'Connecting to {ws_url}')
     wst.start()
 
     # Wait for connect before continuing
@@ -86,15 +86,17 @@ def on_message(ws, msg):
     try:
         if 'subscribe' in message:
             if message['success']:
-                this.logger.debug("Subscribed to %s." % message['subscribe'])
+                subscription = message['subscribe']
+                this.logger.debug(f'Subscribed to {subscription}.')
             else:
-                this.error("Unable to subscribe to %s. Error: \"%s\" Please check and restart." %
-                           (message['request']['args'][0], message['error']))
+                attempt = message['request']['args'][0]
+                error_msg = message['error']
+                this.error(f'Unable to subscribe to {attempt}. Error: "{error_msg}" Please check and restart.')
         elif 'status' in message:
             if message['status'] == 400:
                 this.error(message['error'])
             if message['status'] == 401:
-                this.error("API Key incorrect, please check and restart.")
+                this.error('API Key incorrect, please check and restart.')
         elif action:
 
             if table not in this.data:
@@ -108,15 +110,17 @@ def on_message(ws, msg):
             # 'insert'  - new row
             # 'update'  - update row
             # 'delete'  - delete row
+            msg_data = message['data']
+
             if action == 'partial':
-                this.logger.debug("%s: partial" % table)
-                this.data[table] += message['data']
+                this.logger.debug(f'{table}: partial')
+                this.data[table] += msg_data
                 # Keys are communicated on partials to let you know how to uniquely identify
                 # an item. We use it for updates.
                 this.keys[table] = message['keys']
             elif action == 'insert':
-                this.logger.debug('%s: inserting %s' % (table, message['data']))
-                this.data[table] += message['data']
+                this.logger.debug(f'{table}: inserting {msg_data}')
+                this.data[table] += msg_data
 
                 # Limit the max length of the table to avoid excessive memory usage.
                 # Don't trim orders because we'll lose valuable state if we do.
@@ -124,9 +128,9 @@ def on_message(ws, msg):
                     this.data[table] = this.data[table][(MAX_TABLE_LEN // 2):]
 
             elif action == 'update':
-                this.logger.debug('%s: updating %s' % (table, message['data']))
+                this.logger.debug(f'{table}: updating {msg_data}')
                 # Locate the item in the collection and update it.
-                for update_data in message['data']:
+                for update_data in msg_data:
                     item = find_item_by_keys(this.keys[table], this.data[table], update_data)
                     if not item:
                         continue  # No item found to update. Could happen before push
@@ -137,10 +141,10 @@ def on_message(ws, msg):
                         if 'cumQty' in update_data and not is_canceled:
                             cont_executed = update_data['cumQty'] - item['cumQty']
                             if cont_executed > 0:
-                                instrument = this.get_instrument(item['symbol'])
-                                this.logger.info("Execution: %s %d Contracts of %s at %.*f" %
-                                                 (item['side'], cont_executed, item['symbol'],
-                                                  instrument['tickLog'], item['price']))
+                                side = item['side']
+                                symbol = item['symbol']
+                                price = item['price']
+                                this.logger.info(f'Execution: {side} {cont_executed} Contracts of {symbol} at {price}')
 
                     # Update this item.
                     item.update(update_data)
@@ -150,19 +154,19 @@ def on_message(ws, msg):
                         this.data[table].remove(item)
 
             elif action == 'delete':
-                this.logger.debug('%s: deleting %s' % (table, message['data']))
+                this.logger.debug(f'{table}: deleting {msg_data}')
                 # Locate the item in the collection and remove it.
                 for deleteData in message['data']:
                     item = find_item_by_keys(this.keys[table], this.data[table], deleteData)
                     this.data[table].remove(item)
             else:
-                raise Exception("Unknown action: %s" % action)
+                raise Exception(f'Unknown action: {action}')
     except:
         this.logger.error(traceback.format_exc())
 
 
 def on_open(ws):
-    this.logger.debug("Websocket Opened.")
+    this.logger.debug('Websocket Opened.')
 
 
 def on_close(ws):
@@ -177,11 +181,11 @@ def on_error(ws, error):
 
 def get_auth(api_key, api_secret):
     """Return auth headers. Will use API Keys if present in settings."""
-    this.logger.info("Authenticating with API Key.")
+    this.logger.info('Authenticating with API Key.')
     nonce = generate_nonce()
-    return ["api-nonce: " + str(nonce),
-            "api-signature: " + generate_signature(api_secret, 'GET', '/realtime', nonce, ''),
-            "api-key:" + api_key
+    return ['api-nonce: ' + str(nonce),
+            'api-signature: ' + generate_signature(api_secret, 'GET', '/realtime', nonce, ''),
+            'api-key:' + api_key
             ]
 
 
